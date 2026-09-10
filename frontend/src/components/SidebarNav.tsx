@@ -47,7 +47,6 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
     { route: 'COMBINED_VIEW', label: 'Combined Camera & Pan-Tilt', icon: '🎯' },
     { route: 'EVENT_MONITOR', label: 'Event Log & Alarms', icon: '⚠️' },
     { route: 'DATA_SESSION', label: 'Data & Session CSV', icon: '💾' },
-    { route: 'SYSTEM_STATUS', label: 'System Diagnostics', icon: '⚡' },
     { route: 'PRIVACY_SECURITY', label: 'Privacy & Security', icon: '🔒' },
     { route: 'SETTINGS', label: 'System Settings', icon: '⚙️' },
     { route: 'HELP_SUPPORT', label: 'Help & Customer Service', icon: '🎧', badge: 'SUPPORT' }
@@ -65,7 +64,7 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
   // Filter items for Observer: Common people view basic functionality and UI design
   const displayedNavItems = isObserver
     ? navItems.filter((item) =>
-        ['DASHBOARD', 'CAMERA_RPPG', 'DATASET_WORKSPACE', 'CAMERA', 'SYSTEM_STATUS', 'PRIVACY_SECURITY', 'HELP_SUPPORT'].includes(item.route)
+        ['DASHBOARD', 'CAMERA_RPPG', 'DATASET_WORKSPACE', 'CAMERA', 'PRIVACY_SECURITY', 'HELP_SUPPORT'].includes(item.route)
       )
     : navItems;
 

@@ -20,7 +20,6 @@ import { PanTiltControl } from './components/PanTiltControl';
 import { CameraSection } from './components/CameraSection';
 import { CombinedView } from './components/CombinedView';
 import { RespiratorySignalView } from './components/RespiratorySignalView';
-import { SystemStatusView } from './components/SystemStatusView';
 import { PrivacySecurityView } from './components/PrivacySecurityView';
 import { CameraIlluminationControl } from './components/CameraIlluminationControl';
 import { AdminUserManagementView } from './components/admin/AdminUserManagementView';
@@ -941,18 +940,6 @@ export const App: React.FC = () => {
             </div>
             <RawDataConsole lastPacket={lastPacket} isDarkMode={isDarkMode} />
           </div>
-        )}
-
-        {/* ================= ROUTE 9: SYSTEM STATUS ================= */}
-        {activeRoute === 'SYSTEM_STATUS' && (
-          <SystemStatusView
-            telemetry={telemetry}
-            wsStatus={wsStatus}
-            panTilt={panTilt}
-            camera={camera}
-            session={session}
-            isDarkMode={isDarkMode}
-          />
         )}
 
         {/* ================= ROUTE 10: PRIVACY & SECURITY ================= */}

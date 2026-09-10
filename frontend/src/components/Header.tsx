@@ -475,18 +475,6 @@ export const Header: React.FC<HeaderProps> = ({
                 </button>
               )}
 
-              {onNavigateRoute && (
-                <button
-                  onClick={() => {
-                    setShowRadarDiagnostics(false);
-                    onNavigateRoute('SYSTEM_STATUS');
-                  }}
-                  className="py-2 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs flex items-center gap-1.5 transition"
-                >
-                  <span>Diagnostics</span>
-                </button>
-              )}
-
               <button
                 onClick={() => setShowRadarDiagnostics(false)}
                 className="py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 font-semibold text-xs"
