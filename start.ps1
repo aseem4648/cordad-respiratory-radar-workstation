@@ -3,8 +3,8 @@ Write-Host "  CONTACTLESS RESPIRATORY DISTRESS AND APNEA SYSTEM" -ForegroundColo
 Write-Host "========================================================" -ForegroundColor Cyan
 Write-Host ""
 
-# Auto-free ports 5000 and 3000 if in use to prevent EADDRINUSE errors
-$ports = @(5000, 3000)
+# Auto-free ports 5000, 3000, and 8001 if in use to prevent EADDRINUSE errors
+$ports = @(5000, 3000, 8001)
 foreach ($port in $ports) {
     $conn = Get-NetTCPConnection -LocalPort $port -ErrorAction SilentlyContinue
     if ($conn) {
@@ -33,6 +33,11 @@ if (-not (Test-Path "$PSScriptRoot\frontend\node_modules")) {
     Pop-Location
 }
 
+Write-Host "Starting Camera rPPG & Respiration Engine on port 8001..." -ForegroundColor Green
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$PSScriptRoot\camera-rppg-service'; python api.py"
+
+Start-Sleep -Seconds 1
+
 Write-Host "Starting Backend on port 5000..." -ForegroundColor Green
 Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$PSScriptRoot\backend'; npm run dev"
 
@@ -51,6 +56,7 @@ if (-not $?) {
 
 Write-Host ""
 Write-Host "System started successfully!" -ForegroundColor Yellow
-Write-Host "Frontend: http://localhost:3000" -ForegroundColor Cyan
-Write-Host "Backend:  http://localhost:5000" -ForegroundColor Cyan
+Write-Host "Frontend:    http://localhost:3000" -ForegroundColor Cyan
+Write-Host "Backend:     http://localhost:5000" -ForegroundColor Cyan
+Write-Host "Camera rPPG: http://localhost:8001" -ForegroundColor Cyan
 Write-Host "========================================================" -ForegroundColor Cyan
