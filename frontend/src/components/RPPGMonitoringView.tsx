@@ -2,13 +2,17 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   Heart, Wind, Activity, AlertTriangle, ShieldCheck, CheckCircle2, 
   Sliders, Download, Video, Camera, RefreshCw, X, Play, Pause, 
-  Clock, AlertOctagon, Check, Eye, HelpCircle
+  Clock, AlertOctagon, Check, Eye, HelpCircle, Smartphone, Laptop, 
+  Wifi, ArrowRight, ExternalLink, Info
 } from 'lucide-react';
 
 interface RPPGTelemetry {
   type: string;
   timestamp: string;
   camera_connected: boolean;
+  camera_status?: 'CONNECTED' | 'CONNECTING' | 'DISCONNECTED' | 'ERROR';
+  camera_msg?: string;
+  camera_source_label?: string;
   face_detected: boolean;
   hr: number | null;
   hr_rolling: number | null;
@@ -52,6 +56,8 @@ export const RPPGMonitoringView: React.FC<RPPGMonitoringViewProps> = ({ isDarkMo
   const [wsConnected, setWsConnected] = useState<boolean>(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
   const [cameraSourceInput, setCameraSourceInput] = useState<string>('0');
+  const [activeMode, setActiveMode] = useState<'laptop' | 'iphone'>('laptop');
+  const [showIPhoneGuide, setShowIPhoneGuide] = useState<boolean>(false);
   const [isUpdatingSource, setIsUpdatingSource] = useState<boolean>(false);
   const [isCameraActive, setIsCameraActive] = useState<boolean>(true);
   const [isTogglingCamera, setIsTogglingCamera] = useState<boolean>(false);
@@ -253,13 +259,20 @@ export const RPPGMonitoringView: React.FC<RPPGMonitoringViewProps> = ({ isDarkMo
 
   // Switch camera input (e.g. index 0/1 or iPhone IP stream)
   const handleSwitchDirect = async (src: string) => {
+    const cleanSrc = src.trim();
+    if (!cleanSrc) return;
     setIsUpdatingSource(true);
     setImageError(false);
+    if (cleanSrc === '0') {
+      setActiveMode('laptop');
+    } else {
+      setActiveMode('iphone');
+    }
     try {
       await fetch('http://localhost:8001/api/camera/source', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ source: src })
+        body: JSON.stringify({ source: cleanSrc })
       });
       await fetch('http://localhost:8001/api/camera/start', { method: 'POST' });
       setIsCameraActive(true);
@@ -273,6 +286,20 @@ export const RPPGMonitoringView: React.FC<RPPGMonitoringViewProps> = ({ isDarkMo
 
   const handleSaveCameraSource = async () => {
     await handleSwitchDirect(cameraSourceInput);
+  };
+
+  const handlePasteStreamUrl = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    const pastedText = e.clipboardData.getData('text').trim();
+    if (pastedText) {
+      setCameraSourceInput(pastedText);
+      handleSwitchDirect(pastedText);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      handleSaveCameraSource();
+    }
   };
 
   // Stop / Start Camera Toggle
@@ -597,19 +624,31 @@ export const RPPGMonitoringView: React.FC<RPPGMonitoringViewProps> = ({ isDarkMo
             <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800 mb-3">
               <div className="flex items-center gap-2">
                 <Camera className="h-4 w-4 text-sky-400" />
-                <h3 className="font-bold text-xs uppercase tracking-wider text-slate-800 dark:text-slate-200">
-                  {cameraSourceInput === '0' 
-                    ? 'Optical Viewport — Built-in Laptop Webcam'
-                    : cameraSourceInput === '1' || cameraSourceInput === '2'
-                    ? 'Optical Viewport — Camo iPhone Rear Camera'
-                    : 'Optical Viewport — Live Camera Feed'}
-                </h3>
+                <div>
+                  <h3 className="font-bold text-xs uppercase tracking-wider text-slate-800 dark:text-slate-200">
+                    Optical Viewport
+                  </h3>
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    {telemetry?.camera_source_label || (cameraSourceInput === '0' ? '💻 Test Mode: Built-in Laptop Webcam' : `📱 iPhone 17 Stream (${cameraSourceInput})`)}
+                  </span>
+                </div>
               </div>
-              <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${
-                telemetry?.face_detected ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'
-              }`}>
-                {telemetry?.face_detected ? 'ROI LOCKED' : 'SEARCHING'}
-              </span>
+              <div className="flex items-center gap-1.5">
+                <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold flex items-center gap-1 ${
+                  telemetry?.camera_status === 'CONNECTED' 
+                    ? 'bg-emerald-500/20 text-emerald-400' 
+                    : telemetry?.camera_status === 'CONNECTING'
+                    ? 'bg-amber-500/20 text-amber-400 animate-pulse'
+                    : 'bg-rose-500/20 text-rose-400'
+                }`}>
+                  {telemetry?.camera_status === 'CONNECTED' ? '● LIVE (30 FPS)' : telemetry?.camera_status === 'CONNECTING' ? '⏳ CONNECTING...' : '⚠ OFFLINE'}
+                </span>
+                <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${
+                  telemetry?.face_detected ? 'bg-sky-500/20 text-sky-400' : 'bg-slate-700/40 text-slate-400'
+                }`}>
+                  {telemetry?.face_detected ? 'ROI LOCKED' : 'SEARCHING'}
+                </span>
+              </div>
             </div>
 
             {/* Video Canvas / Stream */}
@@ -630,103 +669,201 @@ export const RPPGMonitoringView: React.FC<RPPGMonitoringViewProps> = ({ isDarkMo
                   <p className="text-xs font-semibold text-slate-200">
                     {!isCameraActive
                       ? 'Camera Offline (Stopped by User)'
-                      : cameraSourceInput === '0'
-                      ? 'Connecting Built-in Laptop Webcam...'
-                      : 'Camera Stream Offline'}
+                      : telemetry?.camera_status === 'CONNECTING'
+                      ? 'Connecting to Stream...'
+                      : 'Stream Offline / Awaiting Camera Link'}
                   </p>
                   <p className="text-[11px] text-slate-500 max-w-xs">
                     {!isCameraActive
-                      ? 'Camera capture is stopped and device is released. Click "Start Camera" to re-engage optical vitals monitoring.'
-                      : cameraSourceInput === '0'
-                      ? 'Initializing DirectShow camera feed. Click "Start Camera" or allow Windows camera permissions if blocked.'
-                      : 'Connect iPhone via Camo / USB Continuity Camera or select Built-in (0) below.'}
+                      ? 'Camera capture is stopped. Click "Start Camera" to re-engage optical vitals monitoring.'
+                      : telemetry?.camera_msg || 'Select Built-in Webcam (Test Mode) or paste iPhone 17 IP stream address below.'}
                   </p>
                 </div>
               )}
             </div>
 
-            {/* Camera Source Switching and Stop/Start Control */}
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              <input
-                type="text"
-                value={cameraSourceInput}
-                onChange={(e) => setCameraSourceInput(e.target.value)}
-                placeholder="Camera Index (0) or IP Stream URL"
-                className="flex-1 min-w-[160px] px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs font-mono"
-              />
-              <button
-                onClick={handleSaveCameraSource}
-                disabled={isUpdatingSource}
-                className="px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold transition"
-              >
-                {isUpdatingSource ? 'Switching...' : 'Switch Source'}
-              </button>
-              <button
-                onClick={handleToggleCamera}
-                disabled={isTogglingCamera}
-                className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 shadow-sm ${
-                  isCameraActive
-                    ? 'bg-rose-600 hover:bg-rose-500 text-white'
-                    : 'bg-emerald-600 hover:bg-emerald-500 text-white ring-2 ring-emerald-400/50 animate-pulse'
-                }`}
-              >
-                {isCameraActive ? (
-                  <>
-                    <Pause className="h-3.5 w-3.5" /> Stop Camera
-                  </>
-                ) : (
-                  <>
-                    <Play className="h-3.5 w-3.5" /> Start Camera
-                  </>
-                )}
-              </button>
-            </div>
-
-            {/* Quick Camo iOS / Built-in Presets */}
-            <div className="mt-2.5 flex flex-wrap items-center gap-1.5 text-[11px]">
-              <span className="text-slate-400 font-medium">Quick Select:</span>
+            {/* Primary Source Mode Switcher Tabs */}
+            <div className="mt-3 grid grid-cols-2 gap-2 p-1 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs">
               <button
                 type="button"
                 onClick={() => {
                   setCameraSourceInput('0');
+                  setActiveMode('laptop');
                   handleSwitchDirect('0');
                 }}
-                className={`px-2.5 py-0.5 rounded-md border text-[11px] font-mono transition ${
+                className={`py-2 px-3 rounded-lg font-semibold flex items-center justify-center gap-1.5 transition-all ${
                   cameraSourceInput === '0'
-                    ? 'border-sky-500 bg-sky-500/15 text-sky-400 font-bold'
-                    : 'border-slate-300 dark:border-slate-800 bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:text-sky-500'
+                    ? 'bg-sky-600 text-white shadow'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
-                💻 Built-in (0)
+                <Laptop className="h-3.5 w-3.5" />
+                <span>Test Mode (Laptop Cam 0)</span>
               </button>
+
               <button
                 type="button"
                 onClick={() => {
-                  setCameraSourceInput('1');
-                  handleSwitchDirect('1');
+                  setActiveMode('iphone');
+                  if (cameraSourceInput === '0') {
+                    setCameraSourceInput('http://192.168.1.50:8080/video');
+                  }
                 }}
-                className={`px-2.5 py-0.5 rounded-md border text-[11px] font-mono transition ${
-                  cameraSourceInput === '1'
-                    ? 'border-emerald-500 bg-emerald-500/15 text-emerald-400 font-bold'
-                    : 'border-slate-300 dark:border-slate-800 bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:text-emerald-500'
+                className={`py-2 px-3 rounded-lg font-semibold flex items-center justify-center gap-1.5 transition-all ${
+                  cameraSourceInput !== '0' || activeMode === 'iphone'
+                    ? 'bg-emerald-600 text-white shadow'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
-                📱 Camo iPhone (1)
+                <Smartphone className="h-3.5 w-3.5" />
+                <span>iPhone 17 Wi-Fi / Camo</span>
               </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setCameraSourceInput('2');
-                  handleSwitchDirect('2');
-                }}
-                className={`px-2.5 py-0.5 rounded-md border text-[11px] font-mono transition ${
-                  cameraSourceInput === '2'
-                    ? 'border-emerald-500 bg-emerald-500/15 text-emerald-400 font-bold'
-                    : 'border-slate-300 dark:border-slate-800 bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:text-emerald-500'
-                }`}
-              >
-                📱 Camo iPhone (2)
-              </button>
+            </div>
+
+            {/* iPhone 17 IP Stream Input & Controls */}
+            <div className="mt-2.5 p-3 rounded-xl border border-slate-200 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-900/50 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <label className="text-[11px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
+                  <Wifi className="h-3.5 w-3.5 text-emerald-400" />
+                  {cameraSourceInput === '0' ? 'Camera Source Index' : 'iPhone 17 IP Address / Stream URL'}
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowIPhoneGuide(!showIPhoneGuide)}
+                  className="text-[10px] text-sky-500 hover:underline flex items-center gap-1"
+                >
+                  <Info className="h-3 w-3" />
+                  {showIPhoneGuide ? 'Hide Instructions' : 'iPhone Setup Help'}
+                </button>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={cameraSourceInput}
+                  onChange={(e) => setCameraSourceInput(e.target.value)}
+                  onPaste={handlePasteStreamUrl}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Paste iPhone IP: e.g. 192.168.1.50:8080 or http://.../video"
+                  className="flex-1 min-w-[170px] px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-sky-500"
+                />
+                <button
+                  onClick={handleSaveCameraSource}
+                  disabled={isUpdatingSource}
+                  className="px-3.5 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold transition shrink-0 shadow-sm"
+                >
+                  {isUpdatingSource ? 'Connecting...' : 'Connect'}
+                </button>
+                <button
+                  onClick={handleToggleCamera}
+                  disabled={isTogglingCamera}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 shrink-0 shadow-sm ${
+                    isCameraActive
+                      ? 'bg-rose-600 hover:bg-rose-500 text-white'
+                      : 'bg-emerald-600 hover:bg-emerald-500 text-white ring-2 ring-emerald-400/50 animate-pulse'
+                  }`}
+                >
+                  {isCameraActive ? (
+                    <>
+                      <Pause className="h-3 w-3" /> Stop
+                    </>
+                  ) : (
+                    <>
+                      <Play className="h-3 w-3" /> Start
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* Quick Select Presets */}
+              <div className="flex flex-wrap items-center gap-1.5 text-[11px] pt-1">
+                <span className="text-slate-400 font-medium text-[10px]">Presets:</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCameraSourceInput('0');
+                    handleSwitchDirect('0');
+                  }}
+                  className={`px-2 py-0.5 rounded border text-[10px] font-mono transition ${
+                    cameraSourceInput === '0'
+                      ? 'border-sky-500 bg-sky-500/15 text-sky-400 font-bold'
+                      : 'border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-600 dark:text-slate-400 hover:text-sky-500'
+                  }`}
+                >
+                  💻 Laptop Webcam (0)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const sample = 'http://192.168.1.50:8080/video';
+                    setCameraSourceInput(sample);
+                    handleSwitchDirect(sample);
+                  }}
+                  className="px-2 py-0.5 rounded border border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-600 dark:text-slate-400 hover:text-emerald-500 text-[10px] font-mono transition"
+                >
+                  📱 IP Camera Lite (:8080)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const sample = 'http://192.168.1.50:4747/video';
+                    setCameraSourceInput(sample);
+                    handleSwitchDirect(sample);
+                  }}
+                  className="px-2 py-0.5 rounded border border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-600 dark:text-slate-400 hover:text-emerald-500 text-[10px] font-mono transition"
+                >
+                  📱 DroidCam (:4747)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCameraSourceInput('1');
+                    handleSwitchDirect('1');
+                  }}
+                  className={`px-2 py-0.5 rounded border text-[10px] font-mono transition ${
+                    cameraSourceInput === '1'
+                      ? 'border-emerald-500 bg-emerald-500/15 text-emerald-400 font-bold'
+                      : 'border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-600 dark:text-slate-400 hover:text-emerald-500'
+                  }`}
+                >
+                  📱 Camo USB (1)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCameraSourceInput('2');
+                    handleSwitchDirect('2');
+                  }}
+                  className={`px-2 py-0.5 rounded border text-[10px] font-mono transition ${
+                    cameraSourceInput === '2'
+                      ? 'border-emerald-500 bg-emerald-500/15 text-emerald-400 font-bold'
+                      : 'border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-600 dark:text-slate-400 hover:text-emerald-500'
+                  }`}
+                >
+                  📱 Camo USB (2)
+                </button>
+              </div>
+
+              {/* Status Message Line */}
+              {telemetry?.camera_msg && (
+                <div className="text-[10px] font-mono text-slate-400 bg-slate-100 dark:bg-slate-950/80 px-2 py-1 rounded border border-slate-200 dark:border-slate-800 truncate">
+                  <span className="text-slate-500">Status:</span> {telemetry.camera_msg}
+                </div>
+              )}
+
+              {/* Collapsible iPhone 17 Setup Instructions */}
+              {showIPhoneGuide && (
+                <div className="p-2.5 rounded-lg bg-sky-500/10 border border-sky-500/20 text-[11px] space-y-1.5 text-slate-300">
+                  <div className="font-bold text-sky-400 flex items-center gap-1.5">
+                    <Smartphone className="h-3.5 w-3.5" /> How to Connect iPhone 17 in 3 Steps:
+                  </div>
+                  <ol className="list-decimal list-inside space-y-1 text-slate-400">
+                    <li>Connect your iPhone 17 and Laptop to the <strong className="text-slate-200">same Wi-Fi</strong> network (or turn on iPhone Personal Hotspot).</li>
+                    <li>Open an IP Camera app on iPhone (e.g. <strong className="text-slate-200">IP Camera Lite</strong>, <strong className="text-slate-200">DroidCam</strong>, or <strong className="text-slate-200">Camo</strong>).</li>
+                    <li>Note the address shown on the iPhone screen (e.g. <span className="font-mono text-sky-400">192.168.1.45:8080</span>) and <strong className="text-slate-200">paste it into the input above</strong>. It auto-connects immediately!</li>
+                  </ol>
+                </div>
+              )}
             </div>
           </div>
 

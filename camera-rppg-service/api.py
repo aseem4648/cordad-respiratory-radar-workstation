@@ -6,15 +6,16 @@ Runs on port 8001.
 
 import asyncio
 import cv2
+import numpy as np
 import time
 import json
-from typing import Optional, Set
+from typing import Optional, Set, Union
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Response
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from camera import VideoCamera
+from camera import VideoCamera, sanitize_source
 from face_tracking import FaceTracker
 from rppg import RPPGProcessor
 from respiration import RespirationProcessor
@@ -22,6 +23,18 @@ from signal_quality import SignalQualityCalculator
 from alert_engine import AlertEngine
 from thresholds import ThresholdConfig, DEFAULT_THRESHOLDS
 from data_logger import DataLogger
+
+def get_camera_source_label(src: Union[int, str]) -> str:
+    s = str(src).strip()
+    if s == "0":
+        return "💻 Test Mode: Built-in Laptop Webcam"
+    elif s == "1":
+        return "📱 Camo / External Camera (Index 1)"
+    elif s == "2":
+        return "📱 Camo / External Camera (Index 2)"
+    elif any(kw in s for kw in ["192.168", "172.", "10.", "http", "rtsp"]):
+        return f"📱 iPhone 17 Stream ({s})"
+    return f"Camera ({s})"
 
 app = FastAPI(title="CORDAD Camera rPPG & Respiration Service", version="1.0.0")
 
@@ -46,10 +59,13 @@ data_logger = DataLogger()
 connected_clients: Set[WebSocket] = set()
 
 # Latest state cache for broadcast
+# Latest state cache for broadcast
 current_telemetry = {
     "type": "RPPG_TELEMETRY",
     "timestamp": time.strftime("%H:%M:%S"),
     "camera_connected": False,
+    "camera_status": "DISCONNECTED",
+    "camera_msg": "Initializing camera...",
     "face_detected": False,
     "hr": None,
     "hr_rolling": None,
@@ -70,13 +86,14 @@ current_telemetry = {
     "resp_waveform": 0.0,
     "active_alerts": [],
     "recent_alerts": [],
-    "camera_source": "0 (Default/USB)"
+    "camera_source": "0",
+    "camera_source_label": "💻 Test Mode: Built-in Laptop Webcam"
 }
 
 annotated_frame_jpeg: Optional[bytes] = None
 
 class CameraSourceRequest(BaseModel):
-    source: str # e.g. "0", "1", or "http://172.20.10.x:8080/video"
+    source: str # e.g. "0", "1", or "http://192.168.1.50:8080/video"
 
 class AcknowledgeRequest(BaseModel):
     alert_id: str
@@ -100,20 +117,80 @@ async def processing_loop():
             frame, is_connected = camera.get_frame()
             now = time.time()
             now_str = time.strftime("%H:%M:%S", time.localtime(now))
+            src_label = get_camera_source_label(camera.source)
 
             if not is_connected or frame is None:
-                current_telemetry["camera_connected"] = False
-                current_telemetry["face_detected"] = False
-                current_telemetry["hr"] = None
-                current_telemetry["rr"] = None
-                current_telemetry["sqi"] = 0.0
-                current_telemetry["sqi_status"] = "INVALID"
-                current_telemetry["is_valid"] = False
-                current_telemetry["overall_status"] = "SIGNAL_UNAVAILABLE"
-                await asyncio.sleep(0.05)
+                current_telemetry.update({
+                    "timestamp": now_str,
+                    "camera_connected": False,
+                    "camera_status": camera.connection_status,
+                    "camera_msg": camera.connection_msg,
+                    "camera_source": str(camera.source),
+                    "camera_source_label": src_label,
+                    "face_detected": False,
+                    "hr": None,
+                    "hr_rolling": None,
+                    "rr": None,
+                    "rr_rolling": None,
+                    "sqi": 0.0,
+                    "sqi_status": "INVALID",
+                    "is_valid": False,
+                    "overall_status": "SIGNAL_UNAVAILABLE"
+                })
+
+                # High-tech biomedical diagnostic placeholder canvas
+                ph = np.zeros((360, 640, 3), dtype=np.uint8)
+                ph[:] = (15, 23, 42) # Slate-900 background
+                # Subtle grid lines
+                for gy in range(0, 360, 30):
+                    cv2.line(ph, (0, gy), (640, gy), (30, 41, 59), 1)
+                for gx in range(0, 640, 40):
+                    cv2.line(ph, (gx, 0), (gx, 360), (30, 41, 59), 1)
+
+                # Header banner
+                cv2.rectangle(ph, (0, 0), (640, 42), (2, 132, 199), -1)
+                cv2.putText(ph, "CORDAD OPTICAL TELEMETRY - CAMERA LINK", (16, 28),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+
+                # Active target
+                cv2.putText(ph, f"ACTIVE TARGET: {src_label}", (24, 85),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.48, (226, 232, 240), 1)
+
+                # Connection state
+                is_connecting = camera.connection_status == "CONNECTING"
+                st_color = (0, 215, 255) if is_connecting else (80, 80, 239)
+                cv2.putText(ph, f"STATUS: {camera.connection_status}", (24, 125),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.65, st_color, 2)
+
+                cv2.putText(ph, camera.connection_msg[:68], (24, 160),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.42, (148, 163, 184), 1)
+
+                # User instructions block
+                cv2.rectangle(ph, (18, 190), (622, 335), (20, 30, 50), -1)
+                cv2.rectangle(ph, (18, 190), (622, 335), (51, 65, 85), 1)
+                cv2.putText(ph, "IP CAMERA / IPHONE 17 CONNECTION STEPS:", (30, 215),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.45, (56, 189, 248), 1)
+                cv2.putText(ph, "1. Open IP Camera Lite, Camo, or DroidCam on iPhone.", (30, 245),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.40, (203, 213, 225), 1)
+                cv2.putText(ph, "2. Ensure iPhone & Laptop are connected to the SAME Wi-Fi network.", (30, 270),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.40, (203, 213, 225), 1)
+                cv2.putText(ph, "3. Paste the URL (e.g. 192.168.1.xxx:8080) in the dashboard input.", (30, 295),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.40, (203, 213, 225), 1)
+                cv2.putText(ph, "   Tip: Click 'Laptop Webcam (0)' below for instant local test mode.", (30, 320),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.40, (148, 163, 184), 1)
+
+                ret_ph, ph_buf = cv2.imencode('.jpg', ph, [cv2.IMWRITE_JPEG_QUALITY, 75])
+                if ret_ph:
+                    annotated_frame_jpeg = ph_buf.tobytes()
+
+                await asyncio.sleep(0.08)
                 continue
 
             current_telemetry["camera_connected"] = True
+            current_telemetry["camera_status"] = camera.connection_status
+            current_telemetry["camera_msg"] = camera.connection_msg
+            current_telemetry["camera_source"] = str(camera.source)
+            current_telemetry["camera_source_label"] = src_label
 
             # 1. Face & Anatomical ROI Detection
             face_detected, rois = face_tracker.detect_and_track(frame)
@@ -297,18 +374,17 @@ def get_available_cameras():
 
 @app.post("/api/camera/source")
 def switch_camera_source(req: CameraSourceRequest):
-    source_val = req.source.strip()
-    if source_val.isdigit():
-        new_src = int(source_val)
-    else:
-        new_src = source_val
-
-    camera.set_source(new_src)
+    sanitized = sanitize_source(req.source)
+    camera.set_source(sanitized)
     camera.start()
     rppg_proc.reset()
     resp_proc.reset()
-    current_telemetry["camera_source"] = str(new_src)
-    return {"success": True, "source": str(new_src)}
+    lbl = get_camera_source_label(sanitized)
+    current_telemetry["camera_source"] = str(sanitized)
+    current_telemetry["camera_source_label"] = lbl
+    current_telemetry["camera_status"] = "CONNECTING"
+    current_telemetry["camera_msg"] = f"Switching to {lbl}..."
+    return {"success": True, "source": str(sanitized), "label": lbl}
 
 @app.post("/api/camera/stop")
 def stop_camera():
