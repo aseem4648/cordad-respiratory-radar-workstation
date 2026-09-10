@@ -51,7 +51,7 @@ class RPPGProcessor:
         for roi, mask in [(forehead_bgr, forehead_mask), (l_cheek_bgr, l_cheek_mask), (r_cheek_bgr, r_cheek_mask)]:
             if roi is not None and mask is not None and np.any(mask):
                 skin_pixels = roi[mask] # shape: (N, 3) in BGR
-                if len(skin_pixels) > 50:
+                if len(skin_pixels) >= 15:
                     b_vals.append(np.mean(skin_pixels[:, 0]))
                     g_vals.append(np.mean(skin_pixels[:, 1]))
                     r_vals.append(np.mean(skin_pixels[:, 2]))
@@ -121,19 +121,19 @@ class RPPGProcessor:
         mean_noise = (np.sum(cardiac_mag) - peak_power) / max(1, len(cardiac_mag) - 1)
         pnr = peak_power / (mean_noise + 1e-6)
         # Scale PNR to 0 - 100 quality percentage
-        pnr_quality = min(100.0, max(0.0, (pnr - 1.2) / 3.0 * 100.0))
+        pnr_quality = min(100.0, max(0.0, (pnr - 1.1) / 2.6 * 100.0))
 
         estimated_hr = float(peak_freq * 60.0)
 
-        # Accept measurement only if PNR quality is at least acceptable (>= 35%)
-        if pnr_quality >= 35.0 and 45.0 <= estimated_hr <= 160.0:
+        # Accept measurement with robust physiological limits
+        if pnr_quality >= 30.0 and 45.0 <= estimated_hr <= 160.0:
             current_hr = round(estimated_hr, 1)
             self.hr_history.append(current_hr)
-            rolling_hr = round(float(np.mean(self.hr_history)), 1)
+            rolling_hr = round(float(np.median(self.hr_history)), 1)
             self.last_valid_hr = current_hr
         else:
-            current_hr = self.last_valid_hr if (pnr_quality >= 30.0) else None
-            rolling_hr = round(float(np.mean(self.hr_history)), 1) if len(self.hr_history) > 0 else None
+            current_hr = self.last_valid_hr if (pnr_quality >= 22.0) else None
+            rolling_hr = round(float(np.median(self.hr_history)), 1) if len(self.hr_history) > 0 else None
 
         return current_hr, rolling_hr, latest_sample, pnr_quality
 
