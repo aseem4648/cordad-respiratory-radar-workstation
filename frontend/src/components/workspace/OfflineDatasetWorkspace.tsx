@@ -59,9 +59,7 @@ export const OfflineDatasetWorkspace: React.FC<OfflineDatasetWorkspaceProps> = (
   onClearDataset,
   isDarkMode
 }) => {
-  const [activeTab, setActiveTab] = useState<WorkspaceTab>(() => {
-    return report && report.isValid && report.rowCount > 0 ? 'OVERVIEW' : 'FILE_UPLOAD';
-  });
+  const [activeTab, setActiveTab] = useState<WorkspaceTab>('FILE_UPLOAD');
 
   // Default selected signal column
   const [selectedSignal, setSelectedSignal] = useState<string>(() => {
@@ -78,14 +76,11 @@ export const OfflineDatasetWorkspace: React.FC<OfflineDatasetWorkspaceProps> = (
       const firstNumeric = report.columnProfiles.find(c => c.isNumeric)?.name;
       const initial = preferred || firstNumeric || report.columnNames[0] || '';
       setSelectedSignal(initial);
-      if (activeTab === 'FILE_UPLOAD' && report.isValid) {
-        setActiveTab('OVERVIEW');
-      }
     }
   }, [report]);
 
   const tabs: Array<{ id: WorkspaceTab; label: string; icon: any }> = [
-    { id: 'FILE_UPLOAD', label: 'File Upload & Ingestion', icon: Upload },
+    { id: 'FILE_UPLOAD', label: 'Workstation Summary & Ingestion', icon: Database },
     { id: 'OVERVIEW', label: 'Overview & Columns', icon: Database },
     { id: 'DATA_TABLE', label: 'Raw Data Table', icon: Table },
     { id: 'SIGNAL_ANALYSIS', label: 'Signal Waveform', icon: Activity },
@@ -102,31 +97,34 @@ export const OfflineDatasetWorkspace: React.FC<OfflineDatasetWorkspaceProps> = (
   // If no dataset is currently uploaded, show File Upload Category with full manual upload suite
   if (!report || !report.isValid || report.rowCount === 0) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-4">
         {/* Workspace Header for Unloaded State */}
-        <div className={`p-6 rounded-2xl border transition-all ${
+        <div className={`p-4 rounded-2xl border transition-all ${
           isDarkMode ? 'bg-[#0D1424] border-slate-800 text-slate-100' : 'bg-white border-slate-200 text-slate-800 shadow-sm'
         }`}>
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
             <div>
               <div className="flex items-center gap-2.5 flex-wrap">
                 <div className="p-2 rounded-lg bg-sky-500/10 text-sky-400 border border-sky-500/20">
                   <Database className="h-5 w-5" />
                 </div>
-                <h1 className="text-lg font-extrabold tracking-tight">
+                <h1 className="text-base font-extrabold tracking-tight">
                   OFFLINE DATASET WORKSTATION
                 </h1>
 
-                <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold uppercase bg-amber-500/10 text-amber-400 border border-amber-500/30">
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase bg-amber-500/10 text-amber-400 border border-amber-500/30">
                   AWAITING DATASET INGESTION
                 </span>
-                <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold uppercase bg-sky-500/10 text-sky-400 border border-sky-500/30">
-                  CATEGORY: MANUAL EXCEL / CSV UPLOAD
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase bg-sky-500/10 text-sky-400 border border-sky-500/30">
+                  SOURCE: USER-UPLOADED FILE
+                </span>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase bg-slate-800 text-slate-300 border border-slate-700">
+                  MODE: OFFLINE ANALYSIS
                 </span>
               </div>
 
               <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
-                Manually upload or drag-and-drop your Excel spreadsheet (.xlsx, .xls) or CSV recording below. All valid columns will be dynamically inspected.
+                Analysis is based <b>ONLY</b> on the uploaded dataset. Zero live radar or simulated data mixed. No data = no value.
               </p>
             </div>
           </div>
@@ -137,8 +135,9 @@ export const OfflineDatasetWorkspace: React.FC<OfflineDatasetWorkspaceProps> = (
           currentReport={null}
           onLoadDataset={(newReport) => {
             if (onLoadDataset) onLoadDataset(newReport);
-            setActiveTab('OVERVIEW');
           }}
+          onClearDataset={onClearDataset}
+          onNavigateToTab={(tabKey) => setActiveTab(tabKey as any)}
           isDarkMode={isDarkMode}
         />
       </div>
@@ -244,8 +243,9 @@ export const OfflineDatasetWorkspace: React.FC<OfflineDatasetWorkspaceProps> = (
             currentReport={report}
             onLoadDataset={(newReport) => {
               if (onLoadDataset) onLoadDataset(newReport);
-              setActiveTab('OVERVIEW');
             }}
+            onClearDataset={onClearDataset}
+            onNavigateToTab={(tabKey) => setActiveTab(tabKey as any)}
             isDarkMode={isDarkMode}
           />
         )}
