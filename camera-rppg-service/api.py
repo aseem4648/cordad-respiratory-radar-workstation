@@ -10,6 +10,7 @@ import time
 import json
 from typing import Optional, Set
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Response
+from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -254,7 +255,7 @@ def video_feed():
                 yield (b'--frame\r\n'
                        b'Content-Type: image/jpeg\r\n\r\n' + annotated_frame_jpeg + b'\r\n')
             time.sleep(0.04) # ~25 FPS
-    return Response(generate(), media_type="multipart/x-mixed-replace; boundary=frame")
+    return StreamingResponse(generate(), media_type="multipart/x-mixed-replace; boundary=frame")
 
 @app.get("/api/status")
 def get_status():
@@ -289,6 +290,26 @@ def switch_camera_source(req: CameraSourceRequest):
     resp_proc.reset()
     current_telemetry["camera_source"] = str(new_src)
     return {"success": True, "source": str(new_src)}
+
+@app.post("/api/camera/stop")
+def stop_camera():
+    camera.stop()
+    rppg_proc.reset()
+    resp_proc.reset()
+    current_telemetry["camera_connected"] = False
+    current_telemetry["face_detected"] = False
+    current_telemetry["hr"] = None
+    current_telemetry["rr"] = None
+    current_telemetry["sqi"] = 0.0
+    current_telemetry["sqi_status"] = "INVALID"
+    current_telemetry["is_valid"] = False
+    current_telemetry["overall_status"] = "SIGNAL_UNAVAILABLE"
+    return {"success": True, "status": "STOPPED"}
+
+@app.post("/api/camera/start")
+def start_camera():
+    camera.start()
+    return {"success": True, "status": "STARTED"}
 
 @app.post("/api/alerts/acknowledge")
 def acknowledge_alert(req: AcknowledgeRequest):

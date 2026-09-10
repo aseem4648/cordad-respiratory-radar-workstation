@@ -53,6 +53,8 @@ export const RPPGMonitoringView: React.FC<RPPGMonitoringViewProps> = ({ isDarkMo
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
   const [cameraSourceInput, setCameraSourceInput] = useState<string>('0');
   const [isUpdatingSource, setIsUpdatingSource] = useState<boolean>(false);
+  const [isCameraActive, setIsCameraActive] = useState<boolean>(true);
+  const [isTogglingCamera, setIsTogglingCamera] = useState<boolean>(false);
 
   // Time-series buffers for real-time graphs (last 60 data points = 60s)
   const [hrHistory, setHrHistory] = useState<Array<{ time: string; hr: number }>>([]);
@@ -260,6 +262,24 @@ export const RPPGMonitoringView: React.FC<RPPGMonitoringViewProps> = ({ isDarkMo
       console.error('Failed to switch camera source:', err);
     } finally {
       setIsUpdatingSource(false);
+    }
+  };
+
+  // Stop / Start Camera Toggle
+  const handleToggleCamera = async () => {
+    setIsTogglingCamera(true);
+    try {
+      const endpoint = isCameraActive ? 'stop' : 'start';
+      await fetch(`http://localhost:8001/api/camera/${endpoint}`, { method: 'POST' });
+      setIsCameraActive(!isCameraActive);
+      if (isCameraActive) {
+        pulseWaveformBuffer.current = [];
+        respWaveformBuffer.current = [];
+      }
+    } catch (err) {
+      console.error('Failed to toggle camera state:', err);
+    } finally {
+      setIsTogglingCamera(false);
     }
   };
 
@@ -576,33 +596,39 @@ export const RPPGMonitoringView: React.FC<RPPGMonitoringViewProps> = ({ isDarkMo
 
             {/* Video Canvas / Stream */}
             <div className="relative aspect-video rounded-xl overflow-hidden bg-slate-950 border border-slate-800 flex items-center justify-center">
-              <img
-                src="http://localhost:8001/video_feed"
-                alt="Live rPPG Viewport"
-                className="w-full h-full object-cover"
-                onError={(e) => {
-                  e.currentTarget.style.display = 'none';
-                }}
-              />
-              {!telemetry?.camera_connected && (
+              {isCameraActive && (
+                <img
+                  src="http://localhost:8001/video_feed"
+                  alt="Live rPPG Viewport"
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                  }}
+                />
+              )}
+              {(!telemetry?.camera_connected || !isCameraActive) && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center bg-slate-950/90 text-slate-400 space-y-2">
                   <Video className="h-8 w-8 text-slate-600 animate-pulse" />
-                  <p className="text-xs font-semibold">Camera Stream Offline</p>
+                  <p className="text-xs font-semibold text-slate-200">
+                    {!isCameraActive ? 'Camera Offline (Stopped by User)' : 'Camera Stream Offline'}
+                  </p>
                   <p className="text-[11px] text-slate-500 max-w-xs">
-                    Connect iPhone 17 via USB (Continuity Camera/Camo/DroidCam) or enter Wi-Fi stream URL below.
+                    {!isCameraActive
+                      ? 'Camera capture is stopped and device is released. Click "Start Camera" to re-engage optical vitals monitoring.'
+                      : 'Connect iPhone 17 via USB (Continuity Camera/Camo/DroidCam) or enter Wi-Fi stream URL below.'}
                   </p>
                 </div>
               )}
             </div>
 
-            {/* Camera Source Switching Control */}
-            <div className="mt-3 flex items-center gap-2">
+            {/* Camera Source Switching and Stop/Start Control */}
+            <div className="mt-3 flex flex-wrap items-center gap-2">
               <input
                 type="text"
                 value={cameraSourceInput}
                 onChange={(e) => setCameraSourceInput(e.target.value)}
                 placeholder="Camera Index (0) or IP Stream URL"
-                className="flex-1 px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs font-mono"
+                className="flex-1 min-w-[160px] px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs font-mono"
               />
               <button
                 onClick={handleSaveCameraSource}
@@ -610,6 +636,25 @@ export const RPPGMonitoringView: React.FC<RPPGMonitoringViewProps> = ({ isDarkMo
                 className="px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold transition"
               >
                 {isUpdatingSource ? 'Switching...' : 'Switch Source'}
+              </button>
+              <button
+                onClick={handleToggleCamera}
+                disabled={isTogglingCamera}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
+                  isCameraActive
+                    ? 'bg-rose-600 hover:bg-rose-500 text-white'
+                    : 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                }`}
+              >
+                {isCameraActive ? (
+                  <>
+                    <Pause className="h-3.5 w-3.5" /> Stop Camera
+                  </>
+                ) : (
+                  <>
+                    <Play className="h-3.5 w-3.5" /> Start Camera
+                  </>
+                )}
               </button>
             </div>
           </div>
