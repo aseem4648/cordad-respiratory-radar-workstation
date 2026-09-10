@@ -277,6 +277,24 @@ def update_thresholds(cfg: ThresholdConfig):
     current_telemetry["thresholds"] = cfg.dict()
     return {"success": True, "thresholds": cfg.dict()}
 
+@app.get("/api/camera/devices")
+def get_available_cameras():
+    """Detect available camera indices on Windows (e.g. 0 for webcam, 1 for Camo/iPhone)"""
+    devices = []
+    for idx in range(4):
+        cap = cv2.VideoCapture(idx, cv2.CAP_DSHOW)
+        if cap.isOpened():
+            name = "Built-in Webcam" if idx == 0 else f"Camo / iPhone Rear Camera (Index {idx})"
+            devices.append({"index": str(idx), "name": name, "available": True})
+            cap.release()
+        else:
+            cap2 = cv2.VideoCapture(idx)
+            if cap2.isOpened():
+                name = "Built-in Webcam" if idx == 0 else f"Camo / iPhone Rear Camera (Index {idx})"
+                devices.append({"index": str(idx), "name": name, "available": True})
+                cap2.release()
+    return {"devices": devices}
+
 @app.post("/api/camera/source")
 def switch_camera_source(req: CameraSourceRequest):
     source_val = req.source.strip()

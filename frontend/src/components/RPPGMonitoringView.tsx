@@ -250,19 +250,27 @@ export const RPPGMonitoringView: React.FC<RPPGMonitoringViewProps> = ({ isDarkMo
   };
 
   // Switch camera input (e.g. index 0/1 or iPhone IP stream)
-  const handleSaveCameraSource = async () => {
+  const handleSwitchDirect = async (src: string) => {
     setIsUpdatingSource(true);
     try {
       await fetch('http://localhost:8001/api/camera/source', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ source: cameraSourceInput })
+        body: JSON.stringify({ source: src })
       });
+      if (!isCameraActive) {
+        await fetch('http://localhost:8001/api/camera/start', { method: 'POST' });
+        setIsCameraActive(true);
+      }
     } catch (err) {
       console.error('Failed to switch camera source:', err);
     } finally {
       setIsUpdatingSource(false);
     }
+  };
+
+  const handleSaveCameraSource = async () => {
+    await handleSwitchDirect(cameraSourceInput);
   };
 
   // Stop / Start Camera Toggle
@@ -655,6 +663,53 @@ export const RPPGMonitoringView: React.FC<RPPGMonitoringViewProps> = ({ isDarkMo
                     <Play className="h-3.5 w-3.5" /> Start Camera
                   </>
                 )}
+              </button>
+            </div>
+
+            {/* Quick Camo iOS / Built-in Presets */}
+            <div className="mt-2.5 flex flex-wrap items-center gap-1.5 text-[11px]">
+              <span className="text-slate-400 font-medium">Quick Select:</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setCameraSourceInput('0');
+                  handleSwitchDirect('0');
+                }}
+                className={`px-2.5 py-0.5 rounded-md border text-[11px] font-mono transition ${
+                  cameraSourceInput === '0'
+                    ? 'border-sky-500 bg-sky-500/15 text-sky-400 font-bold'
+                    : 'border-slate-300 dark:border-slate-800 bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:text-sky-500'
+                }`}
+              >
+                💻 Built-in (0)
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setCameraSourceInput('1');
+                  handleSwitchDirect('1');
+                }}
+                className={`px-2.5 py-0.5 rounded-md border text-[11px] font-mono transition ${
+                  cameraSourceInput === '1'
+                    ? 'border-emerald-500 bg-emerald-500/15 text-emerald-400 font-bold'
+                    : 'border-slate-300 dark:border-slate-800 bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:text-emerald-500'
+                }`}
+              >
+                📱 Camo iPhone (1)
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setCameraSourceInput('2');
+                  handleSwitchDirect('2');
+                }}
+                className={`px-2.5 py-0.5 rounded-md border text-[11px] font-mono transition ${
+                  cameraSourceInput === '2'
+                    ? 'border-emerald-500 bg-emerald-500/15 text-emerald-400 font-bold'
+                    : 'border-slate-300 dark:border-slate-800 bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:text-emerald-500'
+                }`}
+              >
+                📱 Camo iPhone (2)
               </button>
             </div>
           </div>
