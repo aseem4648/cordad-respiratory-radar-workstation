@@ -1,0 +1,13 @@
+{
+  "name": "contactless-respiratory-radar-system",
+  "version": "1.0.0",
+  "description": "24 GHz FMCW Radar Contactless Respiratory Distress and Apnea Detection System",
+  "scripts": {
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    "test": "cd backend && npm run test",
+    "build": "cd backend && npm run build"
+  },
+  "keywords": ["biomedical-engineering", "24ghz-radar", "fmcw", "respiratory-monitoring", "apnea-detection"],
+  "license": "MIT"
+}
