@@ -55,6 +55,8 @@ export const RPPGMonitoringView: React.FC<RPPGMonitoringViewProps> = ({ isDarkMo
   const [isUpdatingSource, setIsUpdatingSource] = useState<boolean>(false);
   const [isCameraActive, setIsCameraActive] = useState<boolean>(true);
   const [isTogglingCamera, setIsTogglingCamera] = useState<boolean>(false);
+  const [streamEpoch, setStreamEpoch] = useState<number>(Date.now());
+  const [imageError, setImageError] = useState<boolean>(false);
 
   // Time-series buffers for real-time graphs (last 60 data points = 60s)
   const [hrHistory, setHrHistory] = useState<Array<{ time: string; hr: number }>>([]);
@@ -252,16 +254,16 @@ export const RPPGMonitoringView: React.FC<RPPGMonitoringViewProps> = ({ isDarkMo
   // Switch camera input (e.g. index 0/1 or iPhone IP stream)
   const handleSwitchDirect = async (src: string) => {
     setIsUpdatingSource(true);
+    setImageError(false);
     try {
       await fetch('http://localhost:8001/api/camera/source', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ source: src })
       });
-      if (!isCameraActive) {
-        await fetch('http://localhost:8001/api/camera/start', { method: 'POST' });
-        setIsCameraActive(true);
-      }
+      await fetch('http://localhost:8001/api/camera/start', { method: 'POST' });
+      setIsCameraActive(true);
+      setStreamEpoch(Date.now());
     } catch (err) {
       console.error('Failed to switch camera source:', err);
     } finally {
@@ -276,11 +278,15 @@ export const RPPGMonitoringView: React.FC<RPPGMonitoringViewProps> = ({ isDarkMo
   // Stop / Start Camera Toggle
   const handleToggleCamera = async () => {
     setIsTogglingCamera(true);
+    setImageError(false);
     try {
       const endpoint = isCameraActive ? 'stop' : 'start';
       await fetch(`http://localhost:8001/api/camera/${endpoint}`, { method: 'POST' });
-      setIsCameraActive(!isCameraActive);
-      if (isCameraActive) {
+      const nextState = !isCameraActive;
+      setIsCameraActive(nextState);
+      if (nextState) {
+        setStreamEpoch(Date.now());
+      } else {
         pulseWaveformBuffer.current = [];
         respWaveformBuffer.current = [];
       }
@@ -592,7 +598,11 @@ export const RPPGMonitoringView: React.FC<RPPGMonitoringViewProps> = ({ isDarkMo
               <div className="flex items-center gap-2">
                 <Camera className="h-4 w-4 text-sky-400" />
                 <h3 className="font-bold text-xs uppercase tracking-wider text-slate-800 dark:text-slate-200">
-                  Optical Viewport (iPhone 17 Rear Camera)
+                  {cameraSourceInput === '0' 
+                    ? 'Optical Viewport — Built-in Laptop Webcam'
+                    : cameraSourceInput === '1' || cameraSourceInput === '2'
+                    ? 'Optical Viewport — Camo iPhone Rear Camera'
+                    : 'Optical Viewport — Live Camera Feed'}
                 </h3>
               </div>
               <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${
@@ -606,24 +616,30 @@ export const RPPGMonitoringView: React.FC<RPPGMonitoringViewProps> = ({ isDarkMo
             <div className="relative aspect-video rounded-xl overflow-hidden bg-slate-950 border border-slate-800 flex items-center justify-center">
               {isCameraActive && (
                 <img
-                  src="http://localhost:8001/video_feed"
+                  key={streamEpoch}
+                  src={`http://localhost:8001/video_feed?epoch=${streamEpoch}`}
                   alt="Live rPPG Viewport"
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    e.currentTarget.style.display = 'none';
-                  }}
+                  className={`w-full h-full object-cover transition-opacity duration-300 ${imageError ? 'opacity-0' : 'opacity-100'}`}
+                  onLoad={() => setImageError(false)}
+                  onError={() => setImageError(true)}
                 />
               )}
-              {(!telemetry?.camera_connected || !isCameraActive) && (
+              {(!telemetry?.camera_connected || !isCameraActive || imageError) && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center bg-slate-950/90 text-slate-400 space-y-2">
                   <Video className="h-8 w-8 text-slate-600 animate-pulse" />
                   <p className="text-xs font-semibold text-slate-200">
-                    {!isCameraActive ? 'Camera Offline (Stopped by User)' : 'Camera Stream Offline'}
+                    {!isCameraActive
+                      ? 'Camera Offline (Stopped by User)'
+                      : cameraSourceInput === '0'
+                      ? 'Connecting Built-in Laptop Webcam...'
+                      : 'Camera Stream Offline'}
                   </p>
                   <p className="text-[11px] text-slate-500 max-w-xs">
                     {!isCameraActive
                       ? 'Camera capture is stopped and device is released. Click "Start Camera" to re-engage optical vitals monitoring.'
-                      : 'Connect iPhone 17 via USB (Continuity Camera/Camo/DroidCam) or enter Wi-Fi stream URL below.'}
+                      : cameraSourceInput === '0'
+                      ? 'Initializing DirectShow camera feed. Click "Start Camera" or allow Windows camera permissions if blocked.'
+                      : 'Connect iPhone via Camo / USB Continuity Camera or select Built-in (0) below.'}
                   </p>
                 </div>
               )}
@@ -648,10 +664,10 @@ export const RPPGMonitoringView: React.FC<RPPGMonitoringViewProps> = ({ isDarkMo
               <button
                 onClick={handleToggleCamera}
                 disabled={isTogglingCamera}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 shadow-sm ${
                   isCameraActive
                     ? 'bg-rose-600 hover:bg-rose-500 text-white'
-                    : 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                    : 'bg-emerald-600 hover:bg-emerald-500 text-white ring-2 ring-emerald-400/50 animate-pulse'
                 }`}
               >
                 {isCameraActive ? (

@@ -304,6 +304,7 @@ def switch_camera_source(req: CameraSourceRequest):
         new_src = source_val
 
     camera.set_source(new_src)
+    camera.start()
     rppg_proc.reset()
     resp_proc.reset()
     current_telemetry["camera_source"] = str(new_src)

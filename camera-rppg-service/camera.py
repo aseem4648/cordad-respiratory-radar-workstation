@@ -37,6 +37,8 @@ class VideoCamera:
                 self.cap = None
             self.is_connected = False
             self.current_frame = None
+        if not self.is_running:
+            self.start()
 
     def _open_capture(self) -> bool:
         try:
