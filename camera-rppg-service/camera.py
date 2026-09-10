@@ -43,6 +43,8 @@ class VideoCamera:
             if isinstance(self.source, int):
                 # Using DirectShow backend on Windows for fastest device initialization
                 self.cap = cv2.VideoCapture(self.source, cv2.CAP_DSHOW)
+                if not self.cap.isOpened():
+                    self.cap = cv2.VideoCapture(self.source)
             else:
                 self.cap = cv2.VideoCapture(self.source)
 
