@@ -4,14 +4,12 @@ import { apiService } from '../services/apiService';
 
 interface PrivacySecurityViewProps {
   session: UserSession | null;
-  onOpenAuthModal: () => void;
   onLogout: () => void;
   isDarkMode: boolean;
 }
 
 export const PrivacySecurityView: React.FC<PrivacySecurityViewProps> = ({
   session,
-  onOpenAuthModal,
   onLogout,
   isDarkMode
 }) => {
@@ -61,10 +59,10 @@ export const PrivacySecurityView: React.FC<PrivacySecurityViewProps> = ({
 
           <div className="flex items-center gap-2">
             <button
-              onClick={onOpenAuthModal}
+              onClick={onLogout}
               className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-sky-600 hover:bg-sky-700 text-white transition-colors"
             >
-              Switch Account / Role
+              Switch Account
             </button>
             <button
               onClick={onLogout}

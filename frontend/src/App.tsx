@@ -31,7 +31,6 @@ import { HelpSupportView } from './components/support/HelpSupportView';
 // Redesigned Authentication & Intro Architecture
 import { OpeningIntro } from './components/auth/OpeningIntro';
 import { LoginPage } from './components/auth/LoginPage';
-import { AuthModal } from './components/AuthModal';
 import { AdminClearanceModal } from './components/AdminClearanceModal';
 
 // Strict Data Provenance & Dataset Analysis Components
@@ -78,7 +77,6 @@ export const App: React.FC = () => {
     return null;
   });
 
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
   const [isClearanceModalOpen, setIsClearanceModalOpen] = useState<boolean>(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
   const [activeRoute, setActiveRoute] = useState<NavigationRoute>('DASHBOARD');
@@ -629,7 +627,7 @@ export const App: React.FC = () => {
         onToggleSidebar={handleToggleSidebar}
         onNavigateRoute={(route) => setActiveRoute(route)}
         onReplayIntro={handleReplayIntro}
-        onOpenAuth={() => setIsAuthModalOpen(true)}
+        onOpenAuth={() => setActiveRoute('PRIVACY_SECURITY')}
         onOpenClearanceModal={() => setIsClearanceModalOpen(true)}
         onLogout={handleLogout}
         onToggleDarkMode={() => setIsDarkMode(!isDarkMode)}
@@ -649,7 +647,7 @@ export const App: React.FC = () => {
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
         session={session}
-        onOpenAuth={() => setIsAuthModalOpen(true)}
+        onOpenAuth={() => setActiveRoute('PRIVACY_SECURITY')}
         onLogout={handleLogout}
         isDarkMode={isDarkMode}
         width={sidebarWidth}
@@ -954,7 +952,6 @@ export const App: React.FC = () => {
         {activeRoute === 'PRIVACY_SECURITY' && (
           <PrivacySecurityView
             session={session}
-            onOpenAuthModal={() => setIsAuthModalOpen(true)}
             onLogout={handleLogout}
             isDarkMode={isDarkMode}
           />
@@ -1001,14 +998,6 @@ export const App: React.FC = () => {
         onClose={() => setIsSettingsOpen(false)}
         settings={settings}
         onSaveSettings={handleSaveSettings}
-        isDarkMode={isDarkMode}
-      />
-
-      {/* Authentication Modal */}
-      <AuthModal
-        isOpen={isAuthModalOpen}
-        onClose={() => setIsAuthModalOpen(false)}
-        onLoginSuccess={handleLoginSuccess}
         isDarkMode={isDarkMode}
       />
 
