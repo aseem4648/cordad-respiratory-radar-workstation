@@ -38,6 +38,7 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
   const navItems: { route: NavigationRoute; label: string; icon: string; badge?: string }[] = [
     { route: 'DASHBOARD', label: 'Dashboard Overview', icon: '📊' },
     { route: 'LIVE_MONITORING', label: 'Live Monitoring', icon: '📈', badge: 'LIVE' },
+    { route: 'CAMERA_RPPG', label: 'Camera rPPG & Vitals', icon: '🫀', badge: 'rPPG' },
     { route: 'DATASET_WORKSPACE', label: 'Offline Dataset Workspace', icon: '📁', badge: 'OFFLINE' },
     { route: 'RESPIRATORY_SIGNAL', label: 'Respiratory DSP Signal', icon: '〰️' },
     { route: 'CAMERA', label: 'ESP32 Camera Feed', icon: '📷' },
@@ -64,7 +65,7 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
   // Filter items for Observer: Common people view basic functionality and UI design
   const displayedNavItems = isObserver
     ? navItems.filter((item) =>
-        ['DASHBOARD', 'DATASET_WORKSPACE', 'CAMERA', 'SYSTEM_STATUS', 'PRIVACY_SECURITY', 'HELP_SUPPORT'].includes(item.route)
+        ['DASHBOARD', 'CAMERA_RPPG', 'DATASET_WORKSPACE', 'CAMERA', 'SYSTEM_STATUS', 'PRIVACY_SECURITY', 'HELP_SUPPORT'].includes(item.route)
       )
     : navItems;
 

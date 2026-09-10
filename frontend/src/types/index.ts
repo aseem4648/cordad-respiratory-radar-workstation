@@ -37,6 +37,7 @@ export interface RecordingStatus {
 export type NavigationRoute = 
   | 'DASHBOARD'
   | 'LIVE_MONITORING'
+  | 'CAMERA_RPPG'
   | 'DATASET_WORKSPACE'
   | 'RESPIRATORY_SIGNAL'
   | 'CAMERA'

@@ -27,6 +27,7 @@ import { AdminUserManagementView } from './components/admin/AdminUserManagementV
 import { AdminAccessLogView } from './components/admin/AdminAccessLogView';
 import { OfflineDatasetWorkspace } from './components/workspace/OfflineDatasetWorkspace';
 import { HelpSupportView } from './components/support/HelpSupportView';
+import { RPPGMonitoringView } from './components/RPPGMonitoringView';
 
 // Redesigned Authentication & Intro Architecture
 import { OpeningIntro } from './components/auth/OpeningIntro';
@@ -474,6 +475,7 @@ export const App: React.FC = () => {
   const routeTitles: Record<NavigationRoute, string> = {
     DASHBOARD: 'Overview Station',
     LIVE_MONITORING: 'Live Vitals & Scope',
+    CAMERA_RPPG: 'Camera rPPG & Thoracic Respiration Monitoring',
     DATASET_WORKSPACE: 'Offline Dataset Analysis Workspace',
     RESPIRATORY_SIGNAL: 'DSP Analysis & Filter Bank',
     CAMERA: 'ESP32 Alignment Viewport',
@@ -813,6 +815,11 @@ export const App: React.FC = () => {
               />
             </div>
           </>
+        )}
+
+        {/* ================= ROUTE: CAMERA rPPG & RESPIRATION ================= */}
+        {activeRoute === 'CAMERA_RPPG' && (
+          <RPPGMonitoringView isDarkMode={isDarkMode} />
         )}
 
         {/* ================= ROUTE: OFFLINE DATASET WORKSPACE ================= */}
